@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LUMINA STUDIO - Cinematic Builder</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    body { background-color: #0A0A0A; color: #fff; font-family: system-ui, sans-serif; margin: 0; }
+    .noise-bg {
+      position: fixed; inset: 0; z-index: 50; pointer-events: none; opacity: 0.015;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    }
+    
+    /* ANIMATIONS FOR SVG BLUEPRINTS */
+    @keyframes orbit { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    @keyframes track-move { 0%, 100% { transform: translateX(-30px); } 50% { transform: translateX(30px); } }
+    @keyframes pan { 0%, 100% { transform: rotate(-35deg); } 50% { transform: rotate(35deg); } }
+    @keyframes shake { 0%, 100% { transform: translate(0, 0) rotate(0deg); } 25% { transform: translate(2px, 2px) rotate(1deg); } 50% { transform: translate(-2px, -1px) rotate(-1deg); } 75% { transform: translate(1px, -2px) rotate(1deg); } }
+    @keyframes zoom-in { 0%, 100% { transform: scale(1); opacity: 0.5; } 50% { transform: scale(1.3); opacity: 1; } }
+    @keyframes zoom-out { 0%, 100% { transform: scale(1.3); opacity: 1; } 50% { transform: scale(1); opacity: 0.5; } }
+    @keyframes jib-up { 0%, 100% { transform: scale(0.8); } 50% { transform: scale(1.3); } }
+    @keyframes jib-down { 0%, 100% { transform: scale(1.3); } 50% { transform: scale(0.8); } }
+    @keyframes tilt-up { 0%, 100% { transform: translateY(0) scaleY(1); } 50% { transform: translateY(-10px) scaleY(1.3); } }
+    @keyframes tilt-down { 0%, 100% { transform: translateY(0) scaleY(1); } 50% { transform: translateY(10px) scaleY(0.7); } }
+    @keyframes drone-fly { 0%, 100% { transform: translate(0, 0); } 25% { transform: translate(10px, -10px); } 50% { transform: translate(20px, 0); } 75% { transform: translate(10px, 10px); } }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    
+    .anim-orbit { animation: orbit 6s linear infinite; }
+    .anim-track { animation: track-move 4s ease-in-out infinite; }
+    .anim-pan { animation: pan 5s ease-in-out infinite; transform-origin: 0 0; }
+    .anim-shake { animation: shake 0.5s ease-in-out infinite; }
+    .anim-zoom-in { animation: zoom-in 3s ease-in-out infinite; transform-origin: center -20px; }
+    .anim-zoom-out { animation: zoom-out 3s ease-in-out infinite; transform-origin: center -20px; }
+    .anim-jib-up { animation: jib-up 4s ease-in-out infinite; transform-origin: center center; }
+    .anim-jib-down { animation: jib-down 4s ease-in-out infinite; transform-origin: center center; }
+    .anim-tilt-up { animation: tilt-up 3s ease-in-out infinite; transform-origin: center 0; }
+    .anim-tilt-down { animation: tilt-down 3s ease-in-out infinite; transform-origin: center 0; }
+    .anim-drone { animation: drone-fly 6s ease-in-out infinite; }
+    .anim-spin { animation: spin 0.5s linear infinite; transform-origin: center; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    // ============================================================================
+    // ELEGANT SVG BLUEPRINT ICONS (BIGGER)
+    // ============================================================================
+    const IconWrapper = ({ children }) => (
+      <div className="w-16 h-16 flex items-center justify-center opacity-80 group-hover:opacity-100 transition-opacity">
+        {children}
+      </div>
+    );
+
+    const StaticIcon = () => (
+      <IconWrapper>
+        <svg viewBox="-100 -100 200 200" className="w-full h-full">
+          <circle cx="0" cy="-20" r="8" fill="#eab308" />
+          <g transform="translate(0, 45)">
+            <polygon points="0,0 -40,-50 40,-50" fill="rgba(255,255,255,0.15)" />
+            <rect x="-10" y="-5" width="20" height="12" rx="2" fill="#121214" stroke="#fff" strokeWidth="2" />
+          </g>
+        </svg>
+      </IconWrapper>
+    );
+
+    const HandheldIcon = () => (
+      <IconWrapper>
+        <svg viewBox="-100 -100 200 200" className="w-full h-full">
+          <circle cx="0" cy="-20" r="8" fill="#eab308" />
+          <g className="anim-shake" transform="translate(0, 45)">
+            <polygon points="0,0 -40,-50 40,-50" fill="rgba(255,255,255,0.15)" />
+            <rect x="-10" y="-5" width="20" height="12" rx="2" fill="#121214" stroke="#fff" strokeWidth="2" />
+          </g>
+        </svg>
+      </IconWrapper>
+    );
+
+    const OrbitIcon = () => (
+      <IconWrapper>
+        <svg viewBox="-100 -100 200 200" className="w-full h-full">
+          <circle cx="0" cy="0" r="8" fill="#eab308" />
+          <g className="anim-orbit">
+            <polygon points="0,45 -35,0 35,0" fill="rgba(255,255,255,0.15)" />
+            <rect x="-10" y="45" width="20" height="12" rx="2" fill="#121214" stroke="#fff" strokeWidth="2" />
+          </g>
+          <circle cx="0" cy="0" r="50" fill="none" stroke="rgba(255,255,255,0.2)" strokeDasharray="4 4" strokeWidth="2" />
+        </svg>
+      </IconWrapper>
+    );
+
+    const TrackIcon = () => (
+      <IconWrapper>
+        <svg viewBox="-100 -100 200 200" className="w-full h-full">
+          <line x1="-80" y1="45" x2="80" y2="45" stroke="rgba(255,255,255,0.2)" strokeDasharray="4 4" strokeWidth="2" />
+          <g className="anim-track">
+            <circle cx="0" cy="-15" r="8" fill="#eab308" />
+            <polygon points="0,45 -35,-15 35,-15" fill="rgba(255,255,255,0.15)" />
+            <rect x="-10" y="45" width="20" height="12" rx="2" fill="#121214" stroke="#fff" strokeWidth="2" />
+          </g>
+        </svg>
+      </IconWrapper>
+    );
+
+    const PanIcon = () => (
+      <IconWrapper>
+        <svg viewBox="-100 -100 200 200" className="w-full h-full">
+          <circle cx="0" cy="-35" r="8" fill="#eab308" />
+          <g transform="translate(0, 50)">
+            <g className="anim-pan">
+              <polygon points="0,0 -50,-80 50,-80" fill="rgba(255,255,255,0.15)" />
+              <rect x="-10" y="-6" width="20" height="12" rx="2" fill="#121214" stroke="#fff" strokeWidth="2" />
+            </g>
+            <circle cx="0" cy="0" r="4" fill="#fff" />
+          </g>
+        </svg>
+      </IconWrapper>
+    );
+
+    const ZoomInIcon = () => (
+      <IconWrapper>
+        <svg viewBox="-100 -100 200 200" className="w-full h-full">
+          <circle cx="0" cy="-20" r="8" fill="#eab308" />
+          <g transform="translate(0, 45)">
+            <polygon points="0,0 -40,-50 40,-50" fill="rgba(255,255,255,0.15)" className="anim-zoom-in" />
+            <rect x="-10" y="-5" width="20" height="12" rx="2" fill="#121214" stroke="#fff" strokeWidth="2" />
+          </g>
+        </svg>
+      </IconWrapper>
+    );
+
+    const ZoomOutIcon = () => (
+      <IconWrapper>
+        <svg viewBox="-100 -100 200 200" className="w-full h-full">
+          <circle cx="0" cy="-20" r="8" fill="#eab308" />
+          <g transform="translate(0, 45)">
+            <polygon points="0,0 -40,-50 40,-50" fill="rgba(255,255,255,0.15)" className="anim-zoom-out" />
+            <rect x="-10" y="-5" width="20" height="12" rx="2" fill="#121214" stroke="#fff" strokeWidth="2" />
+          </g>
+        </svg>
+      </IconWrapper>
+    );
+
+    const TiltUpIcon = () => (
+      <IconWrapper>
+        <svg viewBox="-100 -100 200 200" className="w-full h-full">
+          <circle cx="0" cy="-40" r="8" fill="#eab308" />
+          <g transform="translate(0, 45)">
+            <polygon points="0,0 -40,-60 40,-60" fill="rgba(255,255,255,0.15)" className="anim-tilt-up" />
+            <rect x="-10" y="-5" width="20" height="12" rx="2" fill="#121214" stroke="#fff" strokeWidth="2" />
+          </g>
+        </svg>
+      </IconWrapper>
+    );
+
+    const TiltDownIcon = () => (
+      <IconWrapper>
+        <svg viewBox="-100 -100 200 200" className="w-full h-full">
+          <circle cx="0" cy="10" r="8" fill="#eab308" />
+          <g transform="translate(0, 45)">
+            <polygon points="0,0 -40,-60 40,-60" fill="rgba(255,255,255,0.15)" className="anim-tilt-down" />
+            <rect x="-10" y="-5" width="20" height="12" rx="2" fill="#121214" stroke="#fff" strokeWidth="2" />
+          </g>
+        </svg>
+      </IconWrapper>
+    );
+
+    const JibUpIcon = () => (
+      <IconWrapper>
+        <svg viewBox="-100 -100 200 200" className="w-full h-full">
+          <circle cx="0" cy="0" r="8" fill="#eab308" />
+          <g className="anim-jib-up">
+            <polygon points="0,45 -35,0 35,0" fill="rgba(255,255,255,0.15)" />
+            <rect x="-10" y="45" width="20" height="12" rx="2" fill="#121214" stroke="#fff" strokeWidth="2" />
+          </g>
+        </svg>
+      </IconWrapper>
+    );
+
+    const JibDownIcon = () => (
+      <IconWrapper>
+        <svg viewBox="-100 -100 200 200" className="w-full h-full">
+          <circle cx="0" cy="0" r="8" fill="#eab308" />
+          <g className="anim-jib-down">
+            <polygon points="0,45 -35,0 35,0" fill="rgba(255,255,255,0.15)" />
+            <rect x="-10" y="45" width="20" height="12" rx="2" fill="#121214" stroke="#fff" strokeWidth="2" />
+          </g>
+        </svg>
+      </IconWrapper>
+    );
+
+    const DroneIcon = () => (
+      <IconWrapper>
+        <svg viewBox="-100 -100 200 200" className="w-full h-full">
+          <circle cx="0" cy="0" r="8" fill="#eab308" />
+          <g className="anim-drone">
+            <circle cx="0" cy="0" r="20" fill="none" stroke="#fff" strokeWidth="2" />
+            <circle cx="-15" cy="-15" r="6" stroke="#fff" strokeWidth="1.5" fill="none" className="anim-spin" />
+            <circle cx="15" cy="-15" r="6" stroke="#fff" strokeWidth="1.5" fill="none" className="anim-spin" />
+            <circle cx="-15" cy="15" r="6" stroke="#fff" strokeWidth="1.5" fill="none" className="anim-spin" />
+            <circle cx="15" cy="15" r="6" stroke="#fff" strokeWidth="1.5" fill="none" className="anim-spin" />
+            <circle cx="0" cy="0" r="4" fill="#ef4444" />
+          </g>
+        </svg>
+      </IconWrapper>
+    );
+
+
+    // ============================================================================
+    // DATA BASE
+    // ============================================================================
+    const DB = {
+      shots: [
+        { id: "ecu", label: "Extreme Close", file: "Extreme close up.png", prompt: "extreme close up" },
+        { id: "cu", label: "Close Up", file: "Close up.png", prompt: "close up portrait" },
+        { id: "ms", label: "Medium Shot", file: "Medium shot.png", prompt: "medium shot" },
+        { id: "cowboy", label: "Cowboy", file: "Cowboy shot.png", prompt: "cowboy shot" },
+        { id: "full", label: "Full Body", file: "Full body.png", prompt: "full body shot" },
+        { id: "wide", label: "Wide Shot", file: "Wide shot.png", prompt: "wide shot" },
+        { id: "ew", label: "Extreme Wide", file: "Extreme wide.png", prompt: "extreme wide shot" },
+        { id: "pov", label: "POV", file: "POV.png", prompt: "first person POV" },
+        { id: "drone_shot", label: "Drone", file: "Drone.png", prompt: "drone aerial shot" },
+        { id: "cinematic", label: "Cinematic", file: "Cinematic.png", prompt: "cinematic composition" }
+      ],
+      lights: [
+        { id: "golden", label: "Golden Hour", file: "Golden Hour.png", prompt: "golden hour warm sunlight" },
+        { id: "high", label: "High Key", file: "Hight Key.png", prompt: "high key bright lighting" },
+        { id: "low", label: "Low Key", file: "Low Key.png", prompt: "low key dramatic lighting" },
+        { id: "neon", label: "Neon Cyberpunk", file: "Neon Cyberpunk.png", prompt: "neon cyberpunk lighting" },
+        { id: "strobe", label: "Studio Strobe", file: "Studio strobe.png", prompt: "bright studio strobe light" },
+        { id: "volumetric", label: "Volumetric", file: "Volumetric.png", prompt: "volumetric fog with god rays" },
+        { id: "motion", label: "Motion Blur", file: "Motion Blur.png", prompt: "motion blur background effect" }
+      ],
+      basic_cameras: [
+        { id: "mobile", label: "Celular", prompt: "shot on latest smartphone, cinematic mode" },
+        { id: "action", label: "Câmera de Ação", prompt: "shot on action camera, wide angle" },
+        { id: "pro_generic", label: "Profissional", prompt: "shot on professional cinema camera" }
+      ],
+      pro_cameras: [
+        { id: "r5", label: "Canon R5", file: "Canon R5.png", prompt: "shot on Canon EOS R5" },
+        { id: "c70", label: "Canon C70", file: "Canon C70.png", prompt: "shot on Canon EOS C70 cinema camera" },
+        { id: "a7iv", label: "Sony A7 IV", file: "Sony A7 IV.png", prompt: "shot on Sony A7 IV" },
+        { id: "a7s", label: "Sony A7S III", file: "A7S III.png", prompt: "shot on Sony A7S III" },
+        { id: "fx3", label: "Sony FX3", file: "Sony FX3.png", prompt: "shot on Sony FX3 cinema camera" },
+        { id: "bmpcc", label: "Blackmagic 6K", file: "Blackmagic Pocket 6K.png", prompt: "shot on Blackmagic Pocket Cinema Camera 6K" }
+      ],
+      moves: [
+        { id: "static", label: "Static", prompt: "locked-off static camera", Icon: StaticIcon },
+        { id: "handheld", label: "Handheld", prompt: "subtle handheld camera shake", Icon: HandheldIcon },
+        { id: "zoom_in", label: "Zoom In", prompt: "slow cinematic push-in zoom", Icon: ZoomInIcon },
+        { id: "zoom_out", label: "Zoom Out", prompt: "slow cinematic pull-out zoom", Icon: ZoomOutIcon },
+        { id: "follow", label: "Follow", prompt: "camera tracking behind subject walking forward", Icon: TrackIcon },
+        { id: "pan_left", label: "Pan Left", prompt: "pan camera slowly to the left", Icon: PanIcon },
+        { id: "pan_right", label: "Pan Right", prompt: "pan camera slowly to the right", Icon: PanIcon },
+        { id: "tilt_up", label: "Tilt Up", prompt: "tilt camera up from bottom to top", Icon: TiltUpIcon },
+        { id: "tilt_down", label: "Tilt Down", prompt: "tilt camera down from top to bottom", Icon: TiltDownIcon },
+        { id: "jib_up", label: "Jib Up", prompt: "crane shot rising up vertically", Icon: JibUpIcon },
+        { id: "jib_down", label: "Jib Down", prompt: "crane shot lowering vertically", Icon: JibDownIcon },
+        { id: "dolly_l", label: "Dolly Left", prompt: "dolly tracking shot moving left", Icon: TrackIcon },
+        { id: "dolly_r", label: "Dolly Right", prompt: "dolly tracking shot moving right", Icon: TrackIcon },
+        { id: "drone", label: "Drone", prompt: "high altitude drone shot flying forward", Icon: DroneIcon },
+        { id: "orbit", label: "Orbit 360", prompt: "orbit 360 rotation around subject", Icon: OrbitIcon }
+      ]
+    };
+
+    function App() {
+      const [lang, setLang] = useState("pt"); // Changed default to PT for easier testing
+      const [mode, setMode] = useState("photo"); 
+      const [scene, setScene] = useState("");
+      const [basicCamera, setBasicCamera] = useState("pro_generic");
+      const [aspectRatio, setAspectRatio] = useState("16:9");
+      const [depth, setDepth] = useState("shallow");
+      const [shot, setShot] = useState("cu");
+      const [light, setLight] = useState("golden");
+      const [move, setMove] = useState("static");
+      
+      const [proMode, setProMode] = useState(false);
+      const [proCamera, setProCamera] = useState("r5");
+      
+      const [prompt, setPrompt] = useState("");
+
+      const depths = {
+        shallow: { 
+          label: { en: "Blurred Background (Bokeh)", pt: "Fundo Desfocado (Bokeh)" }, 
+          value: "shallow depth of field, bokeh background", 
+          lens: "with 85mm f/1.2 lens" 
+        },
+        deep: { 
+          label: { en: "Everything in Focus (Deep)", pt: "Tudo Nítido (Deep Focus)" }, 
+          value: "deep depth of field, everything in focus", 
+          lens: "with 35mm f/2.8 lens" 
+        }
+      };
+
+      const t = {
+        subtitle: { en: "CINEMATIC AI ENGINE // V2.0", pt: "MOTOR DE IA CINEMÁTICA // V2.0" },
+        creating: { en: "What are you creating today?", pt: "O que você está criando hoje?" },
+        photo: { en: "PHOTOGRAPHY", pt: "FOTOGRAFIA" },
+        video: { en: "VIDEO (MOTION)", pt: "VÍDEO (MOTION)" },
+        step1: { en: "01. The Device", pt: "01. Dispositivo Base" },
+        step2: { en: "02. The Action / Scene", pt: "02. Descreva a Cena" },
+        placeholder: { en: "E.g., A person changing a car tire in the middle of a rainy street...", pt: "Ex: Uma pessoa trocando o pneu de um carro no meio da estrada chuvosa..." },
+        step3: { en: "03. Aspect Ratio", pt: "03. Proporção (Aspect Ratio)" },
+        step4: { en: "04. Depth of Field", pt: "04. Profundidade de Foco" },
+        step5: { en: "05. Shot Type & Framing", pt: "05. Enquadramento (Shot Type)" },
+        step6: { en: "06. Lighting & Mood", pt: "06. Iluminação e Atmosfera" },
+        step7: { en: "07. Camera Movement", pt: "07. Movimento de Câmera" },
+        pro_toggle: { en: "ENABLE PRO MODE (Specific Gear)", pt: "HABILITAR MODO PRO (Equipamento Específico)" },
+        step_pro: { en: "Advanced Cinematic Gear", pt: "Equipamento Cinematográfico Específico" },
+        awaiting: { en: "Awaiting scene description...", pt: "Aguardando você descrever a cena..." },
+        copy: { en: "Copy Prompt", pt: "Copiar Prompt" },
+        copied: { en: "Prompt copied to clipboard!", pt: "Prompt copiado para a área de transferência!" }
+      };
+
+      useEffect(() => {
+        if(!scene) { setPrompt(t.awaiting[lang]); return; }
+        
+        const shotStr = DB.shots.find(s => s.id === shot).prompt;
+        const lightStr = DB.lights.find(l => l.id === light).prompt;
+        
+        let camStr = "";
+        let lensStr = "";
+
+        if (proMode) {
+          camStr = DB.pro_cameras.find(c => c.id === proCamera).prompt;
+          lensStr = depths[depth].lens; // Apply lens rules to pro cameras
+        } else {
+          camStr = DB.basic_cameras.find(c => c.id === basicCamera).prompt;
+          // Only add lens explicitly if it's the professional generic
+          lensStr = basicCamera === "pro_generic" ? depths[depth].lens : "";
+        }
+
+        const depthStr = depths[depth].value;
+
+        if (mode === "video") {
+          const moveStr = move !== "static" ? DB.moves.find(m => m.id === move).prompt + ". " : "";
+          const finalPrompt = `${moveStr}Documentary video shot, ${shotStr} of ${scene}, ${lightStr}, ${depthStr}, natural skin texture, film grain, ${camStr} ${lensStr}, photorealistic, no cgi, no 3d render, 8k --ar ${aspectRatio} --style raw`.replace(/\s+/g, ' ');
+          setPrompt(finalPrompt);
+        } else {
+          const finalPrompt = `Documentary photograph, ${shotStr} of ${scene}, ${lightStr}, ${depthStr}, natural skin texture, film grain, ${camStr} ${lensStr}, photorealistic, no cgi, no 3d render, 8k --ar ${aspectRatio} --style raw`.replace(/\s+/g, ' ');
+          setPrompt(finalPrompt);
+        }
+      }, [lang, mode, scene, aspectRatio, depth, shot, light, move, basicCamera, proCamera, proMode]);
+
+      const handleCopy = () => {
+        navigator.clipboard.writeText(prompt);
+        alert(t.copied[lang]);
+      };
+
+      return (
+        <div className="min-h-screen pb-20">
+          <div className="noise-bg"></div>
+
+          <div className="max-w-7xl mx-auto px-6 pt-12 relative z-10 space-y-12">
+            
+            <header className="border-b border-zinc-800 pb-6 flex items-end justify-between">
+              <div>
+                <h1 className="text-3xl font-black tracking-widest uppercase text-white">Lumina <span className="text-yellow-500">Studio</span></h1>
+                <p className="text-xs text-zinc-500 font-mono mt-1">{t.subtitle[lang]}</p>
+              </div>
+              
+              {/* Language Toggle */}
+              <div className="flex bg-[#121214] border border-[#262626] rounded-lg overflow-hidden">
+                <button onClick={() => setLang("en")} className={`px-3 py-1.5 text-[10px] font-bold ${lang === "en" ? "bg-zinc-800 text-white" : "text-zinc-500 hover:text-zinc-300"}`}>EN</button>
+                <button onClick={() => setLang("pt")} className={`px-3 py-1.5 text-[10px] font-bold ${lang === "pt" ? "bg-zinc-800 text-white" : "text-zinc-500 hover:text-zinc-300"}`}>PT</button>
+              </div>
+            </header>
+
+            {/* STEP 00: MODE SELECTION */}
+            <div className="flex flex-col items-center">
+              <h2 className="text-xl font-bold mb-6 text-white tracking-wide">{t.creating[lang]}</h2>
+              <div className="inline-flex bg-[#121214] border border-[#262626] rounded-2xl p-1.5 shadow-2xl w-full md:w-auto">
+                <button 
+                  onClick={() => setMode("photo")}
+                  className={`flex-1 md:flex-none flex items-center justify-center gap-3 md:px-12 py-3.5 rounded-xl font-bold tracking-widest uppercase text-xs transition-all duration-300 ${mode === "photo" ? "bg-[#262626] text-white shadow-md scale-100" : "text-zinc-500 hover:text-zinc-300 scale-95"}`}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><circle cx="12" cy="13" r="3" strokeWidth="2"></circle></svg>
+                  {t.photo[lang]}
+                </button>
+                <button 
+                  onClick={() => setMode("video")}
+                  className={`flex-1 md:flex-none flex items-center justify-center gap-3 md:px-12 py-3.5 rounded-xl font-bold tracking-widest uppercase text-xs transition-all duration-300 ${mode === "video" ? "bg-yellow-500 text-black shadow-[0_0_20px_rgba(234,179,8,0.2)] scale-100" : "text-zinc-500 hover:text-zinc-300 scale-95"}`}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                  {t.video[lang]}
+                </button>
+              </div>
+            </div>
+
+            {/* STEP 01: BASIC CAMERA (DISPOSITIVO) */}
+            <section className={proMode ? "opacity-30 pointer-events-none transition-opacity" : "transition-opacity"}>
+              <label className="text-xs font-bold uppercase tracking-widest text-zinc-400 mb-3 block">{t.step1[lang]}</label>
+              <div className="flex flex-col md:flex-row gap-4 p-1.5 bg-[#121214] border border-[#262626] rounded-2xl w-full">
+                {DB.basic_cameras.map(bc => (
+                  <button 
+                    key={bc.id}
+                    onClick={() => setBasicCamera(bc.id)}
+                    className={`flex-1 py-4 rounded-xl font-bold tracking-wider text-sm transition-all ${basicCamera === bc.id ? "bg-white text-black shadow-lg" : "text-zinc-500 hover:text-zinc-300 hover:bg-[#1a1a1f]"}`}
+                  >
+                    {bc.label}
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <section>
+              <label className="text-xs font-bold uppercase tracking-widest text-zinc-400 mb-3 block">{t.step2[lang]}</label>
+              <textarea 
+                value={scene}
+                onChange={e => setScene(e.target.value)}
+                placeholder={t.placeholder[lang]}
+                className="w-full bg-[#121214] border border-[#262626] rounded-2xl p-6 text-lg text-white focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 outline-none transition-all shadow-xl resize-y"
+                rows={2}
+              />
+            </section>
+
+            <section className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div>
+                <label className="text-xs font-bold uppercase tracking-widest text-zinc-400 mb-3 block">{t.step3[lang]}</label>
+                <div className="flex gap-2 p-1.5 bg-[#121214] border border-[#262626] rounded-xl w-full">
+                  {["16:9", "9:16", "1:1"].map(ar => (
+                    <button 
+                      key={ar}
+                      onClick={() => setAspectRatio(ar)}
+                      className={`flex-1 py-3 rounded-lg font-bold tracking-wider text-xs transition-all ${aspectRatio === ar ? "bg-[#262626] text-white shadow-sm" : "text-zinc-500 hover:text-white"}`}
+                    >
+                      {ar}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase tracking-widest text-zinc-400 mb-3 block">{t.step4[lang]}</label>
+                <div className="flex gap-2 p-1.5 bg-[#121214] border border-[#262626] rounded-xl w-full">
+                  {Object.entries(depths).map(([key, val]) => (
+                    <button 
+                      key={key}
+                      onClick={() => setDepth(key)}
+                      className={`flex-1 py-3 rounded-lg font-bold tracking-wider text-xs transition-all ${depth === key ? "bg-[#262626] text-white shadow-sm" : "text-zinc-500 hover:text-white"}`}
+                    >
+                      {val.label[lang]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            <section>
+              <label className="text-xs font-bold uppercase tracking-widest text-zinc-400 mb-3 block">{t.step5[lang]}</label>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                {DB.shots.map(s => (
+                  <button key={s.id} onClick={() => setShot(s.id)} className={`group relative rounded-xl border overflow-hidden transition-all text-left ${shot === s.id ? 'border-yellow-500 ring-2 ring-yellow-500/20 shadow-lg' : 'border-[#262626] hover:border-zinc-500 opacity-60 hover:opacity-100'}`}>
+                    <div className="aspect-[4/3] bg-zinc-900 w-full relative">
+                      <img src={`/renderzero_source/images/Shot Types/${s.file}`} className="w-full h-full object-cover transition-transform group-hover:scale-105" onError={(e) => e.target.style.display='none'} />
+                    </div>
+                    <div className={`p-3 text-[10px] font-bold uppercase tracking-wider ${shot === s.id ? 'bg-yellow-500 text-black' : 'bg-[#121214] text-zinc-300'}`}>
+                      {s.label}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <section>
+              <label className="text-xs font-bold uppercase tracking-widest text-zinc-400 mb-3 block">{t.step6[lang]}</label>
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+                {DB.lights.map(l => (
+                  <button key={l.id} onClick={() => setLight(l.id)} className={`group relative rounded-xl border overflow-hidden transition-all text-left ${light === l.id ? 'border-yellow-500 ring-2 ring-yellow-500/20 shadow-lg' : 'border-[#262626] hover:border-zinc-500 opacity-60 hover:opacity-100'}`}>
+                    <div className="aspect-square bg-zinc-900 w-full relative">
+                      <img src={`/renderzero_source/images/lighting/${l.file}`} className="w-full h-full object-cover transition-transform group-hover:scale-105" onError={(e) => e.target.style.display='none'} />
+                    </div>
+                    <div className={`p-2 text-[9px] text-center font-bold uppercase tracking-wider ${light === l.id ? 'bg-yellow-500 text-black' : 'bg-[#121214] text-zinc-300'}`}>
+                      {l.label}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            {/* CONDITIONAL SECTION: VIDEO MOVEMENTS */}
+            {mode === "video" && (
+              <section className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <label className="text-xs font-bold uppercase tracking-widest text-yellow-500 mb-3 block">{t.step7[lang]}</label>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                  {DB.moves.map(m => {
+                    const Icon = m.Icon;
+                    return (
+                      <button key={m.id} onClick={() => setMove(m.id)} className={`group flex flex-col items-center gap-2 pt-6 pb-4 px-2 rounded-xl border transition-all ${move === m.id ? 'bg-[#1a1a1f] border-yellow-500 shadow-[0_0_20px_rgba(234,179,8,0.15)]' : 'bg-[#121214] border-[#262626] hover:border-zinc-500 opacity-60 hover:opacity-100'}`}>
+                        <Icon />
+                        <span className={`text-[10px] text-center mt-2 font-bold uppercase tracking-wider ${move === m.id ? 'text-yellow-500' : 'text-zinc-400 group-hover:text-zinc-200'}`}>
+                          {m.label}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </section>
+            )}
+
+            {/* PRO MODE TOGGLE */}
+            <div className="flex justify-center pt-8 border-t border-zinc-800 border-dashed">
+              <button 
+                onClick={() => setProMode(!proMode)}
+                className={`px-6 py-2 rounded-full border text-xs font-bold tracking-widest uppercase transition-all flex items-center gap-2 ${proMode ? "bg-yellow-500 text-black border-yellow-500" : "bg-transparent text-zinc-500 border-zinc-700 hover:text-white hover:border-zinc-500"}`}
+              >
+                {proMode ? "★ PRO MODE ACTIVE" : "★ " + t.pro_toggle[lang]}
+              </button>
+            </div>
+
+            {/* PRO MODE GEAR */}
+            {proMode && (
+              <section className="animate-in fade-in slide-in-from-top-4 duration-500 bg-[#121214] border border-[#262626] p-8 rounded-3xl">
+                <div className="flex items-center justify-between mb-6">
+                  <label className="text-xs font-bold uppercase tracking-widest text-yellow-500 block">
+                    {t.step_pro[lang]}
+                  </label>
+                  <span className="text-[10px] text-zinc-500 font-mono">OVERRIDES BASIC DEVICE</span>
+                </div>
+                
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                  {DB.pro_cameras.map(c => (
+                    <button key={c.id} onClick={() => setProCamera(c.id)} className={`group relative rounded-xl border overflow-hidden transition-all text-left ${proCamera === c.id ? 'border-white ring-2 ring-white/20 shadow-lg' : 'border-[#262626] hover:border-zinc-500 opacity-60 hover:opacity-100'}`}>
+                      <div className="aspect-square bg-zinc-900 w-full relative">
+                        <img src={`/renderzero_source/images/cameras/${c.file}`} className="w-full h-full object-cover transition-transform group-hover:scale-105" onError={(e) => e.target.style.display='none'} />
+                      </div>
+                      <div className={`p-2 text-[9px] text-center font-bold uppercase tracking-wider ${proCamera === c.id ? 'bg-white text-black' : 'bg-[#121214] text-zinc-300'}`}>
+                        {c.label}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            <section className="pt-8">
+              <div className="bg-[#050508] border border-[#262626] rounded-3xl p-8 relative shadow-2xl">
+                <div className="absolute top-0 left-8 -translate-y-1/2 bg-[#0D0D12] px-4 text-[10px] font-mono text-yellow-500 border border-yellow-500/30 rounded-full">
+                  OUTPUT // {mode === "video" ? "KLING ENGINE" : "MIDJOURNEY / DALL-E"}
+                </div>
+                
+                <p className="font-mono text-sm leading-relaxed text-zinc-400 min-h-[80px]">
+                  {scene ? prompt : t.awaiting[lang]}
+                </p>
+
+                <div className="mt-8 flex justify-end">
+                  <button onClick={handleCopy} disabled={!scene} className="bg-yellow-500 text-black px-8 py-3 rounded-full font-black uppercase tracking-widest text-sm hover:bg-yellow-400 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100">
+                    {t.copy[lang]}
+                  </button>
+                </div>
+              </div>
+            </section>
+
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
