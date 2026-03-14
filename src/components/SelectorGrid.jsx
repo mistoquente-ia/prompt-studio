@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Search } from 'lucide-react';
+import { IconSearch } from './SvgIcons';
 import SelectorCard from './SelectorCard';
 
 export default function SelectorGrid({
@@ -8,6 +8,7 @@ export default function SelectorGrid({
   onSelect,
   multiSelect = false,
   categoryKey,
+  getIcon,
 }) {
   const [search, setSearch] = useState('');
 
@@ -24,45 +25,59 @@ export default function SelectorGrid({
     return selectedValue === option.label;
   };
 
-  const isGif = categoryKey === 'videoMovement';
-
   return (
-    <div className="space-y-4">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Search bar — shown when 12+ options */}
       {options.length > 12 && (
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+        <div style={{ position: 'relative' }}>
+          <IconSearch style={{
+            position: 'absolute',
+            left: 12,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            width: 16,
+            height: 16,
+            color: '#52525b',
+          }} />
           <input
             type="text"
             placeholder="Search..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 bg-[#171717] border border-[#262626] rounded-xl
-                       text-sm text-white placeholder-zinc-600
-                       focus:outline-none focus:border-zinc-500
-                       transition-colors"
+            className="input"
+            style={{
+              paddingLeft: 38,
+              fontSize: 14,
+            }}
           />
         </div>
       )}
 
-      <div className={`
-        grid gap-2.5
-        ${isGif
-          ? 'grid-cols-2 sm:grid-cols-3'
-          : 'grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6'
-        }
-      `}>
+      {/* Grid */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
+        gap: 8,
+      }}>
         {filtered.map((option) => (
           <SelectorCard
             key={option.id}
             option={option}
             isSelected={isSelected(option)}
             onClick={() => onSelect(option.label)}
+            icon={getIcon ? getIcon(option) : null}
           />
         ))}
       </div>
 
+      {/* No results */}
       {filtered.length === 0 && (
-        <p className="text-center text-zinc-600 text-sm py-8">
+        <p style={{
+          textAlign: 'center',
+          color: '#52525b',
+          fontSize: 14,
+          padding: '32px 0',
+        }}>
           No results for "{search}"
         </p>
       )}

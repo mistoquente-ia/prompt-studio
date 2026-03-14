@@ -14,6 +14,7 @@ const initialState = {
   movieLook: '',
   filter: [],
   videoMovement: '',
+  artStyle: '',
   aspectRatio: '16:9',
   imageSize: '1K',
 };
@@ -55,53 +56,41 @@ function reducer(state, action) {
 
 /**
  * Build the final prompt string.
- *
- * Standard (image) mode:
- *   Joins all non-empty fields with ", " in cinematic order.
- *
- * Video / Seedance mode (when videoMovement is selected):
- *   Uses a more directive sentence format:
- *   "[shot]. [subject/mood]. Camera: [movement]. Shot on [camera], [lens], [film]."
+ * Now supports artStyle — when an art style is selected,
+ * camera/lens/filmStock are skipped in the prompt.
  */
 function buildPrompt(state) {
+  const hasArtStyle = !!state.artStyle;
   const hasVideoMovement = !!state.videoMovement;
 
   if (hasVideoMovement) {
     // ── Seedance / Kling video prompt format ──
     const parts = [];
 
-    // Opening shot description
     const shotParts = [];
     if (state.shotType) shotParts.push(state.shotType);
     if (state.direction) shotParts.push(state.direction);
     if (shotParts.length) parts.push(shotParts.join(', '));
 
-    // Mood / atmosphere
     if (state.mood) parts.push(state.mood);
-
-    // Lighting
     if (state.lighting) parts.push(state.lighting);
-
-    // Camera movement directive
     parts.push(`Camera: ${state.videoMovement}`);
 
-    // Technical specs
-    const techParts = [];
-    if (state.camera) techParts.push(`Shot on ${state.camera}`);
-    if (state.focalLength) techParts.push(state.focalLength);
-    if (state.lens) techParts.push(state.lens);
-    if (state.filmStock) techParts.push(state.filmStock);
-    if (techParts.length) parts.push(techParts.join(', '));
+    if (!hasArtStyle) {
+      const techParts = [];
+      if (state.camera) techParts.push(`Shot on ${state.camera}`);
+      if (state.focalLength) techParts.push(state.focalLength);
+      if (state.lens) techParts.push(state.lens);
+      if (state.filmStock) techParts.push(state.filmStock);
+      if (techParts.length) parts.push(techParts.join(', '));
+    }
 
-    // Style references
+    if (state.artStyle) parts.push(state.artStyle);
     if (state.genre) parts.push(state.genre + ' style');
     if (state.photographer) parts.push(`in the style of ${state.photographer}`);
     if (state.movieLook) parts.push(`${state.movieLook} color grade`);
-
-    // Filters
     if (state.filter.length) parts.push(state.filter.join(', '));
 
-    // Aspect ratio & size
     const metaParts = [];
     if (state.aspectRatio) metaParts.push(state.aspectRatio);
     if (state.imageSize) metaParts.push(state.imageSize);
@@ -116,10 +105,16 @@ function buildPrompt(state) {
   if (state.direction) segments.push(state.direction);
   if (state.lighting) segments.push(state.lighting);
   if (state.mood) segments.push(state.mood);
-  if (state.camera) segments.push(`shot on ${state.camera}`);
-  if (state.focalLength) segments.push(state.focalLength);
-  if (state.lens) segments.push(state.lens);
-  if (state.filmStock) segments.push(state.filmStock);
+
+  // Skip camera/lens if art style is selected
+  if (!hasArtStyle) {
+    if (state.camera) segments.push(`shot on ${state.camera}`);
+    if (state.focalLength) segments.push(state.focalLength);
+    if (state.lens) segments.push(state.lens);
+    if (state.filmStock) segments.push(state.filmStock);
+  }
+
+  if (state.artStyle) segments.push(state.artStyle);
   if (state.genre) segments.push(state.genre);
   if (state.photographer) segments.push(`style of ${state.photographer}`);
   if (state.movieLook) segments.push(`${state.movieLook} look`);
@@ -134,6 +129,9 @@ export function usePromptBuilder() {
   const [state, dispatch] = useReducer(reducer, initialState);
 
   const prompt = useMemo(() => buildPrompt(state), [state]);
+
+  // Whether an art style is selected (skip camera/lens steps)
+  const isArtMode = !!state.artStyle;
 
   const toggleSingle = useCallback(
     (field, value) => dispatch({ type: 'TOGGLE_SINGLE', field, value }),
@@ -160,6 +158,7 @@ export function usePromptBuilder() {
   return {
     state,
     prompt,
+    isArtMode,
     toggleSingle,
     toggleMulti,
     setField,
